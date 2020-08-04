@@ -1,0 +1,111 @@
+apply plugin: 'com.android.application'
+
+String[] getSigningProperties(boolean isDebug) {
+    File propFile = new File('signing.properties')
+    if (propFile.exists()) {
+        Properties props = new Properties()
+        props.load(new FileInputStream(propFile))
+        if (isDebug) {
+            def signP = new String[1]
+            signP[0] = props['DEBUG_STORE_FILE']
+            return signP
+        } else {
+            def signP = new String[4]
+            signP[0] = props['STORE_FILE']
+            signP[1] = props['STORE_PASSWORD']
+            signP[2] = props['KEY_ALIAS']
+            signP[3] = props['KEY_PASSWORD']
+            return signP
+        }
+    }
+}
+
+android {
+    signingConfigs {
+        releaseConfig
+    }
+    compileSdkVersion 29
+    buildToolsVersion '28.0.3'
+    defaultConfig {
+        applicationId "com.lxzh123.dumpdex"
+        minSdkVersion 15
+        targetSdkVersion 29
+        versionCode 1
+        versionName "1.0.0"
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        externalNativeBuild {
+            cmake {
+//                cppFlags "-std=c++11 -fno-rtti -fno-exceptions"
+//                arguments '-DANDROID_PLATFORM=android-16',
+//                        '-DANDROID_TOOLCHAIN=clang', '-DANDROID_STL=none'
+//                abiFilters 'armeabi-v7a', 'x86', 'x86_64'
+                cppFlags "-std=c++14","-fms-extensions"
+//                abiFilters 'arm64-v8a', 'armeabi-v7a'
+            }
+            ndk {
+//            abiFilters 'armeabi', 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+                abiFilters 'armeabi-v7a', 'x86', 'x86_64'
+            }
+        }
+    }
+    signingConfigs {
+        release {
+            try {
+                def signP = getSigningProperties(false)
+                storeFile file(signP[0])
+                storePassword signP[1]
+                keyAlias signP[2]
+                keyPassword signP[3]
+
+                v1SigningEnabled true
+                v2SigningEnabled true
+            } catch (ex) {
+                ex.printStackTrace()
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.10.2"
+        }
+    }
+    android.applicationVariants.all { variant ->
+        variant.outputs.each { output ->
+            def outputFile = output.outputFileName
+            if (outputFile != null && outputFile.endsWith('.apk')) {
+                // 显示app名称+当前版本号
+
+                def fileName = "FDumpDex_v${defaultConfig.versionName}"
+                // 加入打包时间
+//                fileName = fileName + "_${releaseTime()}"
+                // 如果是debug版本，加入beta版本号
+                if ('debug'.equals(variant.buildType.name)) {
+                    fileName = fileName + "_debug.apk"
+                } else {
+                    // 如果是release版本，直接显示
+                    fileName = fileName + ".apk"
+                }
+                output.outputFileName = fileName
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+//    implementation 'androidx.appcompat:appcompat:1.0.0'
+//    implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
+    compileOnly 'de.robv.android.xposed:api:82'
+}
